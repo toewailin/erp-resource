@@ -866,3 +866,293 @@ public function boot(): void
 
 ---
 
+Excellent. Now that our data is secure and restricted by Roles and Permissions, we need to build the **Application Shell (The ERP Layout)**.
+
+An ERP is only as good as its navigation. A user needs a persistent Sidebar and a Top Header that stays in place while they click through the HR, Inventory, and Accounting modules.
+
+Here is how to build a professional, responsive layout using your `shadcn/ui` components and Inertia.js.
+
+---
+
+### Step 1: Install Layout UI Components
+
+To build a modern sidebar and user menu, we need a few more `shadcn/ui` primitives. Run this in your terminal:
+
+```bash
+npx shadcn-ui@latest add dropdown-menu avatar sheet separator
+
+```
+
+* `dropdown-menu`: For the User Profile / Logout menu.
+* `avatar`: To display the user's initials or photo.
+* `sheet`: For a slide-out mobile sidebar.
+
+### Step 2: Create the Persistent Layout Component
+
+In an Inertia app, you don't want the sidebar to re-render every time you change pages. We create a dedicated Layout component for this.
+
+Create a new file at `resources/js/Layouts/AuthenticatedLayout.tsx`:
+
+```tsx
+import React, { ReactNode } from 'react';
+import { Link, usePage } from '@inertiajs/react';
+import { 
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+    DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+} from "@/Components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/Components/ui/avatar";
+import { Button } from "@/Components/ui/button";
+
+interface LayoutProps {
+    children: ReactNode;
+}
+
+export default function AuthenticatedLayout({ children }: LayoutProps) {
+    const { auth } = usePage().props as any;
+    const user = auth.user;
+    
+    // Helper to check if user has access to a module
+    const hasPermission = (permission: string) => {
+        return auth.permissions?.includes(permission) || auth.roles?.includes('Super Admin');
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex">
+            
+            {/* 1. Sidebar (Desktop) */}
+            <aside className="w-64 bg-slate-900 text-slate-300 hidden md:flex flex-col">
+                <div className="h-16 flex items-center px-6 border-b border-slate-800">
+                    <span className="text-lg font-bold text-white tracking-wider">PIXELVITE ERP</span>
+                </div>
+                
+                <nav className="flex-1 py-6 px-4 space-y-2">
+                    <Link 
+                        href={route('dashboard')} 
+                        className="block px-4 py-2 rounded-md hover:bg-slate-800 hover:text-white transition"
+                    >
+                        Dashboard
+                    </Link>
+
+                    {/* Conditionally render the HR Module Link */}
+                    {hasPermission('view employees') && (
+                        <div className="pt-4">
+                            <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                                Human Resources
+                            </p>
+                            <Link 
+                                href={route('hr.employees.index')} 
+                                className="block px-4 py-2 rounded-md hover:bg-slate-800 hover:text-white transition"
+                            >
+                                Employees
+                            </Link>
+                        </div>
+                    )}
+                    
+                    {/* Future Modules go here (Inventory, CRM, etc.) */}
+                </nav>
+            </aside>
+
+            {/* 2. Main Content Area */}
+            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                
+                {/* Top Header */}
+                <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0">
+                    <div className="flex items-center">
+                        {/* Mobile menu button would go here */}
+                        <h2 className="text-lg font-medium text-gray-800 hidden sm:block">
+                            Welcome back, {user.name}
+                        </h2>
+                    </div>
+
+                    {/* User Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                                <Avatar>
+                                    <AvatarFallback className="bg-blue-600 text-white">
+                                        {user.name.charAt(0)}
+                                    </AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-56" align="end" forceMount>
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-medium leading-none">{user.name}</p>
+                                    <p className="text-xs leading-none text-muted-foreground">
+                                        {user.email}
+                                    </p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href={route('profile.edit')} className="w-full cursor-pointer">
+                                    Profile Settings
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href={route('logout')} method="post" as="button" className="w-full cursor-pointer text-red-600">
+                                    Log out
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </header>
+
+                {/* Dynamic Page Content */}
+                <div className="flex-1 overflow-auto p-6">
+                    {children}
+                </div>
+            </main>
+        </div>
+    );
+}
+
+```
+
+### Step 3: Apply the Layout to Your Pages
+
+Now we need to tell Inertia to wrap our previously created `EmployeeIndex` and `EmployeeCreate` pages inside this layout.
+
+Open your `resources/js/Pages/HR/Employees/Index.tsx` file and update it to use the Persistent Layout feature:
+
+```tsx
+import React from 'react';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Head, Link, usePage } from '@inertiajs/react';
+// ... other imports
+
+export default function EmployeeIndex({ employees }) {
+    // ... existing code ...
+    return (
+        <>
+            {/* Remove the outer <div className="p-6"> if you want, 
+                since the Layout already adds padding */}
+            {/* ... rest of your page code ... */}
+        </>
+    );
+}
+
+// THIS IS THE MAGIC LINE:
+// It tells Inertia to wrap this page in the AuthenticatedLayout
+EmployeeIndex.layout = (page: React.ReactNode) => <AuthenticatedLayout children={page} />;
+
+```
+
+*Don't forget to add that exact same `.layout` line to the bottom of your `Create.tsx` file as well!*
+
+### Why this architecture is powerful:
+
+When a user clicks "Employees" in the sidebar, Inertia only fetches the JSON data for the employees table from your Laravel backend. The Sidebar, Topbar, and User Avatar **do not reload or flicker**. This provides the exact same high-speed, app-like experience you saw in the `Ping CRM` demo, but built on a secure, robust foundation.
+
+---
+
+At this point, we have a fully functional HR module skeleton (Database, Backend Validation, React UI, Permissions, and a Shell Layout).
+
+---
+
+Let's set up **Global Flash Messages (Toasts)**.
+
+Since you just built the "Create Employee" form, the user needs immediate visual feedback (a success pop-up) when the form submits correctly. Since we are using `shadcn/ui`, we can implement a beautiful, sliding toast notification system that will work automatically across the entire ERP.
+
+Here is how to wire it up.
+
+---
+
+### Step 1: Install the Toast Component
+
+Run this command in your terminal to generate the toast primitives from `shadcn/ui`:
+
+```bash
+npx shadcn-ui@latest add toast
+
+```
+
+This command creates several files, including `use-toast.ts` (a React hook to trigger the notifications) and a `<Toaster/>` component.
+
+### Step 2: Inject the Toaster into Your App
+
+You need to place the `<Toaster/>` component at the very top level of your application so it can render over any page.
+
+The best place for this in an Inertia setup is inside your `resources/js/Layouts/AuthenticatedLayout.tsx`.
+
+Update your layout file:
+
+```tsx
+import React, { ReactNode, useEffect } from 'react';
+import { Link, usePage } from '@inertiajs/react';
+// ... your other imports ...
+import { Toaster } from "@/Components/ui/toaster"; // <-- 1. Import Toaster
+import { useToast } from "@/Components/ui/use-toast"; // <-- 2. Import the hook
+
+interface LayoutProps {
+    children: ReactNode;
+}
+
+export default function AuthenticatedLayout({ children }: LayoutProps) {
+    const { auth, flash } = usePage().props as any; // <-- 3. Grab 'flash' from Inertia props
+    const user = auth.user;
+    const { toast } = useToast(); // <-- 4. Initialize the toast function
+
+    // 5. Watch for changes in flash messages and trigger a toast
+    useEffect(() => {
+        if (flash?.success) {
+            toast({
+                title: "Success",
+                description: flash.success,
+                variant: "default", // green/standard look
+            });
+        }
+        
+        if (flash?.error) {
+            toast({
+                title: "Error",
+                description: flash.error,
+                variant: "destructive", // red look
+            });
+        }
+    }, [flash, toast]);
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex">
+            {/* ... Sidebar Code ... */}
+            
+            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                {/* ... Header Code ... */}
+
+                <div className="flex-1 overflow-auto p-6">
+                    {children}
+                </div>
+            </main>
+
+            {/* 6. Mount the Toaster outside the main flow */}
+            <Toaster />
+        </div>
+    );
+}
+
+```
+
+### Step 3: How It Works Behind the Scenes
+
+Now, whenever you return a redirect from **any** Laravel Controller using the `->with()` method, Inertia and React will automatically catch it and display the popup.
+
+Remember this code from your `EmployeeController`?
+
+```php
+public function store(StoreEmployeeRequest $request)
+{
+    Employee::create($request->validated());
+
+    // This 'success' key is what our useEffect is watching!
+    return redirect()->route('hr.employees.index')
+        ->with('success', 'Employee created successfully.');
+}
+
+```
+
+Now, when an HR Manager adds an employee and gets redirected back to the table, a sleek notification will slide in at the bottom corner of the screen saying: **"Success: Employee created successfully."**
+
+---
+
+With the layout and notifications fully operational, you have a highly polished user experience.
