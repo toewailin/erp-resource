@@ -100,6 +100,311 @@ Next.js မှာ Database နဲ့ ချိတ်ဆက်တဲ့အခါ 
 
 ---
 
+မင်္ဂလာပါ။ Professional Next.js Developer တစ်ယောက်အနေနဲ့ Custom React Hooks တွေအကြောင်းကို လက်တွေ့လုပ်ငန်းခွင်သုံး အဆင့် (Production-level) နားလည်အောင် ရှင်းပြပေးပါမယ်။
+
+### Custom React Hook ဆိုတာ ဘာလဲ?
+
+ရိုးရိုးရှင်းရှင်းပြောရရင် Custom Hook ဆိုတာ React ရဲ့ built-in hooks တွေ (ဥပမာ - `useState`, `useEffect`, `useContext`) ကို အခြေခံပြီး ကိုယ်ပိုင်ဖန်တီးထားတဲ့ JavaScript/TypeScript function တစ်ခုပါပဲ။
+
+**ဘာလို့သုံးတာလဲ? (Why do we need them?)**
+
+1. **Reusability (ပြန်လည်အသုံးပြုနိုင်ခြင်း):** Component တစ်ခုတည်းမှာပဲ အလုပ်လုပ်နေတဲ့ Logic တွေကို တခြား Component တွေမှာပါ ထပ်သုံးချင်တဲ့အခါ Code တွေ copy-paste လုပ်နေမယ့်အစား Hook ခွဲထုတ်လိုက်တာပါ။
+2. **Clean Code (သန့်ရှင်းသော ကုဒ်):** UI (မြင်ရတဲ့အပိုင်း) နဲ့ Logic (အလုပ်လုပ်တဲ့အပိုင်း) ကို သီးသန့်ခွဲထုတ်လိုက်တဲ့အတွက် Component တွေက ဖတ်ရလွယ်သွားပါတယ်။
+3. **Testability:** Logic တွေကို သီးသန့်စမ်းသပ် (Test) လုပ်ရတာ ပိုလွယ်ကူသွားပါတယ်။
+
+### Professional စည်းမျဉ်းများ (Rules of Custom Hooks)
+
+* နာမည်ပေးတဲ့အခါ အမြဲတမ်း **`use`** နဲ့ စရပါမယ် (ဥပမာ - `useFetch`, `useWindowSize`, `useAuth`)။ ဒါမှ React က Hook တစ်ခုမှန်းသိပြီး စည်းမျဉ်းတွေကို စစ်ဆေးပေးမှာပါ။
+* Next.js 13 နဲ့အထက် (App Router) မှာဆိုရင် `useState` ဒါမှမဟုတ် `useEffect` သုံးထားတဲ့ Custom Hooks တွေကို **Client Components** တွေမှာပဲ သုံးလို့ရပါတယ်။
+
+---
+
+### လက်တွေ့ ဥပမာ (၁): `useToggle` (အခြေခံအကျဆုံး Hook)
+
+Modal တွေပြတာ၊ Menu အဖွင့်အပိတ်လုပ်တာ၊ Password ဖွက်တာ/ပြတာတွေအတွက် အသုံးများပါတယ်။
+
+```tsx
+// hooks/useToggle.ts
+import { useState, useCallback } from 'react';
+
+export const useToggle = (initialValue: boolean = false) => {
+  const [value, setValue] = useState<boolean>(initialValue);
+
+  // useCallback ကိုသုံးထားတာက re-render ဖြစ်တိုင်း function အသစ်ထပ်မဖြစ်အောင် (Performance အတွက်) ပါ
+  const toggle = useCallback(() => {
+    setValue((prev) => !prev);
+  }, []);
+
+  // Array အနေနဲ့ return ပြန်တာက component မှာ နာမည်ပြောင်းပေးရလွယ်လို့ပါ
+  return [value, toggle] as const;
+};
+
+```
+
+**ဘယ်လိုပြန်သုံးမလဲ?**
+
+```tsx
+"use client";
+import { useToggle } from '@/hooks/useToggle';
+
+export default function MyComponent() {
+  // ကိုယ်ကြိုက်တဲ့ နာမည်ပြောင်းပေးလို့ရပါတယ်
+  const [isOpen, toggleOpen] = useToggle(false); 
+
+  return (
+    <div>
+      <button onClick={toggleOpen} className="bg-blue-500 p-2 text-white">
+        {isOpen ? 'Close Menu' : 'Open Menu'}
+      </button>
+      {isOpen && <p>Here is the menu content!</p>}
+    </div>
+  );
+}
+
+```
+
+---
+
+### လက်တွေ့ ဥပမာ (၂): `useDebounce` (လုပ်ငန်းခွင်သုံး)
+
+Next.js မှာ Search box လုပ်တဲ့အခါ စာရိုက်တိုင်း API ကို မခေါ်ဘဲ၊ စာရိုက်ရပ်သွားမှ (ဥပမာ - စက္ကန့်ဝက်လောက်ကြာမှ) API ကိုတစ်ခါတည်းခေါ်ဖို့အတွက် အများဆုံးသုံးပါတယ်။ Server ကို ဝန်မပိအောင် ကာကွယ်ပေးပါတယ်။
+
+```tsx
+// hooks/useDebounce.ts
+import { useState, useEffect } from 'react';
+
+export const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    // သတ်မှတ်ထားတဲ့ အချိန် (delay) ရောက်မှ value ကို အသစ်ပြင်တယ်
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    // Component unmount ဖြစ်ရင် ဒါမှမဟုတ် value အသစ်ဝင်လာရင် အဟောင်းကို ဖျက်တယ် (Cleanup)
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+```
+
+**ဘယ်လိုပြန်သုံးမလဲ?**
+
+```tsx
+"use client";
+import { useState, useEffect } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
+
+export default function SearchComponent() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500); // 500ms (စက္ကန့်ဝက်) စောင့်ပါမယ်
+
+  useEffect(() => {
+    if (debouncedSearch) {
+      // ဒီနေရာမှာ Backend API ကို လှမ်းခေါ်လို့ရပါပြီ
+      console.log("Searching database for:", debouncedSearch);
+    }
+  }, [debouncedSearch]);
+
+  return (
+    <input
+      type="text"
+      placeholder="Search users..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="border p-2 rounded"
+    />
+  );
+}
+
+```
+
+---
+
+### Professional Tips (Next.js အတွက် အထူးသတိပြုရန်)
+
+1. **Folder Structure:** အများအားဖြင့် Project ရဲ့ root directory (ဒါမှမဟုတ် `src/` သုံးထားရင် `src/` အောက်မှာ) `hooks` ဆိုတဲ့ folder သီးသန့်ဆောက်ပြီး သိမ်းလေ့ရှိပါတယ်။
+2. **Typescript သုံးပါ:** အပေါ်က ဥပမာတွေလိုပဲ TypeScript (Generics `<T>`) ကို တွဲသုံးတာက မှားယွင်းမှု (bugs) တွေကို အများကြီး လျှော့ချပေးနိုင်ပါတယ်။
+3. **Server vs Client:** Custom hooks တွေဟာ React lifecycle ပေါ်မှာ အလုပ်လုပ်တာဖြစ်လို့ Next.js ရဲ့ Server Components တွေမှာ တိုက်ရိုက်သုံးလို့မရပါဘူး။ Client interactivity လိုအပ်တဲ့ နေရာတွေမှာ `"use client"` ကိုသုံးပြီးမှ ခေါ်သုံးရပါမယ်။
+
+အခုပြပေးခဲ့တဲ့ ဥပမာတွေအပြင် လက်တွေ့ project တွေမှာ မရှိမဖြစ်လိုအပ်တဲ့ API ခေါ်ဖို့ `useFetch` ဒါမှမဟုတ် LocalStorage နဲ့ချိတ်ဆက်ဖို့ `useLocalStorage` စတဲ့ Advanced Hook တွေကိုပါ ဆက်ပြီး လေ့လာကြည့်ချင်ပါသလား။
+
+---
+
+ဝမ်းသာပါတယ်။ လုပ်ငန်းခွင်သုံး Project တွေ၊ အထူးသဖြင့် Full-stack Web Development လုပ်တဲ့အခါ အမြဲတမ်းလိုလို ရေးရလေ့ရှိတဲ့ Advanced Custom Hooks (၂) ခုကို ဆက်ပြီး လေ့လာကြည့်ရအောင်။
+
+ဒီ Hooks တွေက သင်လက်ရှိလေ့လာနေတဲ့ React/Next.js environment မှာ Data တွေ သိမ်းဆည်းဖို့နဲ့ API တွေ ချိတ်ဆက်ဖို့အတွက် အလွန်အသုံးဝင်ပါတယ်။
+
+---
+
+### ၁။ `useLocalStorage` Hook (Data များကို အသေသိမ်းဆည်းခြင်း)
+
+React ရဲ့ `useState` က Page refresh လုပ်လိုက်ရင် Data တွေ ပျောက်သွားပါတယ်။ အဲ့ဒီလို မပျောက်ချင်ဘဲ Browser ရဲ့ Local Storage မှာပါ တစ်ခါတည်း သွားသိမ်းပေးမယ့် Hook မျိုးပါ။
+**အသုံးများသောနေရာများ** - Dark/Light Theme အခြေအနေကို မှတ်ထားခြင်း၊ User ရဲ့ Preferences များ သိမ်းထားခြင်း၊ Shopping Cart Data များ ယာယီသိမ်းခြင်း။
+
+**Next.js အတွက် အရေးကြီးသော အချက်:** Next.js က Server-Side Rendering (SSR) လုပ်တဲ့အတွက် Server ပေါ်မှာ `window` (Browser ရဲ့ အစိတ်အပိုင်း) မရှိပါဘူး။ ဒါကြောင့် Error မတက်အောင် သတိထားရေးရပါတယ်။
+
+```tsx
+// hooks/useLocalStorage.ts
+import { useState, useEffect } from 'react';
+
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  // State စဆောက်တဲ့အချိန်မှာ LocalStorage ထဲက Data ရှိမရှိ အရင်စစ်ပါတယ်
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error("Error reading localStorage", error);
+      return initialValue;
+    }
+  });
+
+  // storedValue ပြောင်းလဲသွားတိုင်း LocalStorage ကိုပါ Update သွားလုပ်ပေးပါတယ်
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(storedValue));
+      } catch (error) {
+        console.error("Error setting localStorage", error);
+      }
+    }
+  }, [key, storedValue]);
+
+  return [storedValue, setStoredValue] as const;
+}
+
+```
+
+**ဘယ်လိုပြန်သုံးမလဲ?**
+
+```tsx
+"use client";
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+
+export default function ThemeSwitcher() {
+  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme-preference', 'light');
+
+  return (
+    <div className={`p-4 ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-black'}`}>
+      <p>Current Theme: {theme}</p>
+      <button 
+        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        className="mt-2 p-2 border rounded"
+      >
+        Toggle Theme
+      </button>
+    </div>
+  );
+}
+
+```
+
+---
+
+### ၂။ `useFetch` Hook (API များနှင့် ချိတ်ဆက်ခြင်း)
+
+Client-side ကနေ API လှမ်းခေါ်တဲ့အခါတိုင်း Loading အခြေအနေ (Spinner ပြဖို့)၊ Error အခြေအနေ နဲ့ Data ရလာတဲ့ အခြေအနေ (၃) ခုလုံးကို Component တိုင်းမှာ လိုက်ရေးနေရင် Code တွေ ရှုပ်ပွသွားပါလိမ့်မယ်။ ဒါတွေကို Hook တစ်ခုတည်းမှာ စုရေးလိုက်တာပါ။
+
+**Professional Standard:** Component တစ်ခုက API ခေါ်နေတုန်း ရုတ်တရက် Unmount ဖြစ်သွားရင် (ဥပမာ - တခြား Page ကို ကူးသွားရင်) Memory Leak မဖြစ်အောင် `AbortController` ကို သုံးပြီး API Request ကို Cancel လုပ်ပေးရပါတယ်။
+
+```tsx
+// hooks/useFetch.ts
+import { useState, useEffect } from 'react';
+
+// API ကနေ ပြန်လာမယ့် Data ပုံစံကို Type ကြိုသတ်မှတ်ထားတာပါ
+interface FetchState<T> {
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
+}
+
+export function useFetch<T>(url: string) {
+  const [state, setState] = useState<FetchState<T>>({
+    data: null,
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    // API request ကို လိုအပ်ရင် ဖြတ်ချဖို့ AbortController ကို သုံးပါတယ်
+    const abortController = new AbortController();
+    const fetchData = async () => {
+      setState({ data: null, loading: true, error: null });
+      try {
+        const response = await fetch(url, { signal: abortController.signal });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        setState({ data: result, loading: false, error: null });
+      } catch (error: any) {
+        // Unmount ဖြစ်လို့ Cancel လုပ်တာဆိုရင် Error အနေနဲ့ မသတ်မှတ်ပါဘူး
+        if (error.name === 'AbortError') return;
+        setState({ data: null, loading: false, error });
+      }
+    };
+
+    fetchData();
+
+    // Component ပိတ်သွားရင် (Unmount) API Request ကို Cancel လုပ်ပါတယ် (Cleanup)
+    return () => abortController.abort();
+  }, [url]);
+
+  return state;
+}
+
+```
+
+**ဘယ်လိုပြန်သုံးမလဲ?**
+
+```tsx
+"use client";
+import { useFetch } from '@/hooks/useFetch';
+
+// သင့် API က ပြန်လာမယ့် JSON ပုံစံ (Interface)
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export default function UserList() {
+  const { data: users, loading, error } = useFetch<User[]>('https://jsonplaceholder.typicode.com/users');
+
+  if (loading) return <p>Loading users...</p>;
+  if (error) return <p className="text-red-500">Error: {error.message}</p>;
+
+  return (
+    <ul>
+      {users?.map((user) => (
+        <li key={user.id} className="py-2 border-b">
+          {user.name} ({user.email})
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+```
+
+### 💡 Professional Next.js Developer တစ်ယောက်အနေနဲ့ အကြံပြုချက် (Pro Tips):
+
+* **Data Fetching in Next.js (App Router):** အပေါ်က `useFetch` ဟာ React အခြေခံအတွက် အရမ်းကောင်းတဲ့ သင်ခန်းစာတစ်ခုပါ။ ဒါပေမဲ့ Next.js 13 နဲ့အထက် App Router မှာဆိုရင် Data Fetching တွေကို Client-side မှာထက် **Server Components** တွေမှာ `async/await` နဲ့ တိုက်ရိုက်ခေါ်တာက SEO နဲ့ Performance အတွက် အများကြီး ပိုကောင်းပါတယ်။
+* **Production အတွက် Libraries များ:** တကယ့် Production-level Client-side fetching တွေမှာ ကိုယ်ပိုင် `useFetch` ရေးမယ့်အစား **SWR** (Vercel ကထုတ်တာမို့ Next.js နဲ့ အလွန်လိုက်ဖက်ပါတယ်) ဒါမှမဟုတ် **TanStack Query (React Query)** ကို သုံးဖို့ အကြံပေးချင်ပါတယ်။ သူတို့က Data Caching, Revalidation (Data အသစ်ပြန်စစ်ခြင်း) တွေကို အလိုအလျောက် လုပ်ပေးလို့ပါ။
+
+ဒီ Custom Hooks တွေကို ကိုယ်ပိုင် Project တွေမှာ စမ်းသုံးကြည့်ရင်းနဲ့ ကိုယ်တိုင်လိုအပ်တဲ့ Logic တွေကိုလည်း Hooks လေးတွေ ခွဲထုတ်ရေးကြည့်ဖို့ တိုက်တွန်းချင်ပါတယ်။ အခြားသိချင်တဲ့ အပိုင်းတွေရှိရင်လည်း ဆက်ပြီး မေးမြန်းနိုင်ပါတယ်။
+
+---
+
 ## ၁။ Architecture (Professional Approach)
 
 Professional ဆန်တဲ့ Next.js app တစ်ခုမှာ Database ကို direct ချိတ်ရုံတင်မကဘဲ အောက်ပါအချက်တွေကို သတိထားရပါတယ်-
