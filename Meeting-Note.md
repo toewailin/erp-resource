@@ -1,6 +1,6 @@
 # PixelVite ERP Client Meeting Script & Flow
 
-ဒီမှတ်စုသည် မနက်ဖြန် Online Meeting တွင် PixelVite Team မှ စနစ်တကျနှင့် Professional ဆန်ဆန် ပြောဆိုဆွေးနွေးနိုင်ရန် ပြင်ဆင်ထားသော လုပ်ငန်းခွင်သုံး Flow ဖြစ်သည်။
+လုပ်ငန်းခွင်သုံး Flow
 
 ---
 
